@@ -1,7 +1,7 @@
 <?php
 
 namespace killworm737\Pdo;
-
+use \PDO;
 class PdoDb
 {
     private $pdo;
