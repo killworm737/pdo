@@ -156,7 +156,19 @@ class GetDbData
                 $tStr = '`' . $vv['Field'] . '` ' . $vv['Type']  ;
                 if ($vv['Collation'] != NULL ) $tStr .= " COLLATE " . $vv['Collation'] . " " ;
                 if ($vv['Null'] == 'NO') $tStr .= ' NOT NULL' ;
-                if ($vv['Default'] != NULL ) $tStr .= " DEFAULT '" . $vv['Default'] . "' " ;
+                if ($vv['Default'] != NULL ) {
+                    if ($vv['Type'] == 'timestamp') {
+                        $tStr .= " DEFAULT " . $vv['Default']  ;
+                    } else {
+                        $tStr .= " DEFAULT '" . $vv['Default'] . "' " ;
+                    }
+                }
+                if (!empty($vv['Extra'])) {
+                    if ($vv['Type'] == 'timestamp') {
+                        $tStr .= " " . $vv['Extra'] ;
+                    }
+                }
+
                 $tArr[] = $tStr;
             }
 
