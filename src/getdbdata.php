@@ -6,9 +6,11 @@ use killworm737\Pdo\PdoDb;
 /**
  * 取得資料庫中所有表格資料，可以建立 create table、select、insert
  * @param array $filter['table'] 要排除的table
+ * @param array $filter['ex_table'] 只有選定的才不排除的table
  * @param array $filter['col_type'] 要排除的欄位格式
  * @param array $filter['col_field'] 要排除的欄位名稱
- * @param int $filter['maxrow'] default 100 ，限制最大筆數
+ * @param int $filter['maxrow'] ，限制最大筆數
+ * @param int $filter['minrow'] ，限制最小筆數
  * @todo 若使用bind會無法控制，還在找尋原因，可能是pdo寫法有問題
  */
 class GetDbData
@@ -20,7 +22,6 @@ class GetDbData
     {
         $this->db_in = new PdoDb('includes/db_staging_'.$inStr.'.yml');
         $this->db_out = new PdoDb('includes/db_staging_'.$outStr.'.yml');
-        $this->filter['maxrow'] = 100;
     }
 
     /**
@@ -83,6 +84,30 @@ class GetDbData
         $n = ':' . $n;
         // $n = '?';
         return($n);
+    }
+
+    /**
+     * [getSqlSelect description]
+     * @param  array  $tables [description]
+     * @return [type]         [description]
+     * @todo 用來查詢table資料，是想用來自動新增，但資料量太大時很快就當掉
+     */
+    function getSqlSelect($tables = array())
+    {
+        $sql = [];
+        foreach ($tables as $k => $v) {
+            $tArr = array_keys($v);
+
+            $tCols = implode('`,`', $tArr);
+
+            $tStr = 'select `'.$tCols.'` from '.$k ;
+
+            $sql[$k]['sql'] = $tStr;
+            $sql[$k]['data'] = $this->db_in->query($tStr);
+
+        }
+
+        return $sql;
     }
 
     /**
@@ -150,27 +175,6 @@ class GetDbData
     }
 
     /**
-     * [getSqlSelect description]
-     * @param  array  $tables [description]
-     * @return [type]         [description]
-     * @todo 用來查詢table資料，是想用來自動新增，但資料量太大時很快就當掉
-     */
-    function getSqlSelect($tables = array())
-    {
-        foreach ($tables as $k => $v) {
-            $tArr = array_keys($v);
-
-            $tCols = implode('`,`', $tArr);
-
-            $tStr = 'select `'.$tCols.'` from '.$k . ';';
-
-            $sql[] = $tStr;
-            $sql[$k] = $$this->db_in->query($tStr);
-        }
-        return $sql;
-    }
-
-    /**
      * [getTableList 取得table與field清單].
      * 利用 SHOW TABLE STATUS 取得table清單
      *
@@ -179,8 +183,10 @@ class GetDbData
     function getTableList()
     {
         $filter_table = (array)$this->filter['table'];
+        $filter_ex_table = (array)$this->filter['ex_table'];
         $filter_col_type = (array)$this->filter['col_type'];
         $filter_col_field = (array)$this->filter['col_field'];
+        $filter_minrow = $this->filter['minrow'];
         $filter_maxrow = $this->filter['maxrow'];
 
 
@@ -192,11 +198,20 @@ class GetDbData
             if (empty($v['Rows'])) {
                 continue;
             };
-            if ($v['Rows']>$filter_maxrow) {
+
+            if ($v['Rows']<$filter_minrow and !empty($filter_minrow)) {
                 continue;
             };
-            if (in_array($v['Name'], $filter_col_type)) {
+            if ($v['Rows']>$filter_maxrow and !empty($filter_maxrow)) {
                 continue;
+            };
+            if (in_array($v['Name'], $filter_table)) {
+                continue;
+            }
+            if (!empty($filter_ex_table)) {
+                if (!in_array($v['Name'], $filter_ex_table)) {
+                    continue;
+                }
             }
 
             $tables[$v['Name']] = [];
