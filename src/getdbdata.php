@@ -187,6 +187,35 @@ class GetDbData
     }
 
     /**
+     * [getSqlDelete 依照getTables結果，建立 delete 語法].
+     * @param array $tables [description]
+     * @return array [description]
+     */
+    function getSqlDelete($tables = array())
+    {
+        foreach ($tables as $k => $v) {
+            $tDrop = "DELETE FROM  `" . $k . "` ;";
+            $sql[] = $tDrop;
+        }
+        return $sql;
+    }
+
+    /**
+     * [getSqlTRUNCATE 依照getTables結果，建立 TRUNCATE 語法].
+     * @param array $tables [description]
+     * @return array [description]
+     */
+    function getSqlTRUNCATE($tables = array())
+    {
+        foreach ($tables as $k => $v) {
+            $tDrop = "TRUNCATE TABLE `" . $k . "` ;";
+            $sql[] = $tDrop;
+        }
+        return $sql;
+    }
+
+
+    /**
      * [getTableList 取得table與field清單].
      * 利用 SHOW TABLE STATUS 取得table清單
      *
@@ -207,7 +236,7 @@ class GetDbData
         $tArr = [];
         $i = 0;
         foreach ($tTables as $k => $v) {
-            if (empty($v['Rows'])) {
+            if ($v['Rows'] === null ) {
                 continue;
             };
 
