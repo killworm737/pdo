@@ -20,10 +20,17 @@ class getdbdata
     private $db_in;
     private $db_out;
     public $filter = [];
-    public function __construct($inStr = 'twn', $outStr = 'loc')
+
+    /**
+     * @param $inStr['env'] 來源環境
+     * @param $inStr['area'] 來源區域
+     * @param $outStr['env'] 匯入環境
+     * @param $outStr['area'] 匯入區域
+     */
+    public function __construct($inStr = array('env'=>'staging','area'=>'twn'), $outStr = array('env'=>'local','area'=>'loc'))
     {
-        $this->db_in = new PdoDb('includes/db_staging_'.$inStr.'.yml');
-        $this->db_out = new PdoDb('includes/db_staging_'.$outStr.'.yml');
+        $this->db_in = new PdoDb('includes/environment/'.$inStr['env'].'/db_'.$inStr['area'].'.yml');
+        $this->db_out = new PdoDb('includes/environment/'.$outStr['env'].'/db_'.$outStr['area'].'.yml');
     }
 
     /**
@@ -44,7 +51,7 @@ class getdbdata
     }
 
     /**
-     * [pushdata 執行execute].
+     * [pushdata 執行SQL execute].
      *
      * @param [type] $sqls [description]
      *
@@ -176,8 +183,11 @@ class getdbdata
         }
 
         $tInsert = [];
+        $tttt = [];
         foreach ($sql as $k => $v) {
             if (!empty($v['data'])) {
+                $tttt[$k]['col'] = '`'.$v['colstr'].'`';
+
                 $tInsert[$k] = 'INSERT INTO `'.$k.'` (`'.$v['colstr'].'` ) VALUES ';
 
                 $tArr = [];
@@ -190,11 +200,12 @@ class getdbdata
                         $tArr[] = $tStr;
                     }
                 }
+                $tttt[$k]['val'] = $tArr;
                 $tInsert[$k] .= implode(',', $tArr).';';
             }
         }
 
-        return $tInsert;
+        return $tttt;
     }
     /**
      * [getSqlDrop 依照getTables結果，建立 drop 語法].
@@ -232,7 +243,7 @@ class getdbdata
                 if ($vv['Null'] == 'NO') {
                     $tStr .= ' NOT NULL';
                 }
-                if ($vv['Default'] != null) {
+                if ($vv['Default'] !== null) {
                     if ($vv['Type'] == 'timestamp') {
                         $tStr .= ' DEFAULT '.$vv['Default'];
                     } else {
@@ -240,13 +251,21 @@ class getdbdata
                     }
                 }
                 if (!empty($vv['Extra'])) {
-                    if ($vv['Type'] == 'timestamp') {
-                        $tStr .= ' '.$vv['Extra'];
-                    }
+                    $tStr .= ' '.$vv['Extra'] . ' ';
                 }
 
                 $tArr[] = $tStr;
             }
+            $pri = [];
+            foreach ($v as $kk => $vv) {
+                if ($vv['Key'] == 'PRI') {
+                    $pri[] = '`'.$vv['Field'].'`';
+                }
+            }
+            if (count($pri)>0) {
+                $tArr[] = ' PRIMARY KEY (' .implode(',', $pri).  ')  ';
+            }
+
 
             $tDrop = 'DROP TABLE IF EXISTS `'.$k.'` ;';
             $tCols = implode(',', $tArr);
