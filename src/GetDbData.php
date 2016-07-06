@@ -34,20 +34,12 @@ class GetDbData
     }
 
     /**
-     * @todo
+     * @todo 用來直接測試sql語法
      */
-    public function test($sqls)
+    public function test($sql)
     {
-        $this->db_out->beginTransaction();
-        foreach ($sqls as $sql) {
-            try {
-                $this->db_out->qq($sql['sql'], $sql['data']);
-            } catch (Exception $e) {
-                echo $sql.'<br>';
-                echo $e->getMessage().'<br>';
-            }
-        }
-        $this->db_out->executeTransaction();
+        $tTables = $this->db_in->query($sql);
+        return $tTables;
     }
 
     /**
@@ -268,7 +260,7 @@ class GetDbData
 
 
             $tDrop = 'DROP TABLE IF EXISTS `'.$k.'` ;';
-            $tCols = implode(',', $tArr);
+            $tCols = implode(chr(13) . ',' , $tArr);
             $tCreate = 'CREATE TABLE `'.$k.'` (
                 '.$tCols.'
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ;
