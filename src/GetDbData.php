@@ -27,18 +27,18 @@ class GetDbData
      * @param $outStr['env'] 匯入環境
      * @param $outStr['area'] 匯入區域
      */
-    public function __construct($inStr = array('env'=>'staging','area'=>'twn'), $outStr = array('env'=>'local','area'=>'loc'))
+    public function __construct($inStr = array('env'=>'staging','area'=>'twn'), $outStr = array('env'=>'local','area'=>'new'))
     {
         $this->db_in = new PdoDb('includes/environment/'.$inStr['env'].'/db_'.$inStr['area'].'.yml');
         $this->db_out = new PdoDb('includes/environment/'.$outStr['env'].'/db_'.$outStr['area'].'.yml');
     }
 
     /**
-     * @todo 用來直接測試sql語法
+     * @todo
      */
-    public function test($sql)
+    public function test($sqls)
     {
-        $tTables = $this->db_in->query($sql);
+        $tTables = $this->db_in->query($sqls);
         return $tTables;
     }
 
@@ -102,8 +102,10 @@ class GetDbData
     public function strsetup($n)
     {
         $tStr = $n;
-        $tStr = str_replace("\n", ' ', $tStr);
+        $tStr = str_replace(array("\r", "\n", "\r\n", "\n\r"), ' ', $tStr);
         $tStr = str_replace('"', ' ', $tStr);
+        $tStr = str_replace("'", ' ', $tStr);
+        $tStr = str_replace(";", ' ', $tStr);
         $type = "'".mb_substr($tStr, 0, 40, 'UTF-8')."'";
 
         if ($n === null) {
@@ -114,7 +116,7 @@ class GetDbData
     }
 
     /**
-     * [getSqlSelect description].
+     * [querySql description].
      *
      * @param array $tables [description]
      *
@@ -122,21 +124,13 @@ class GetDbData
      *
      * @todo 用來查詢table資料，是想用來自動新增，但資料量太大時很快就當掉
      */
-    public function getSqlSelect($tables = array())
+    public function querySql($sqlstrs)
     {
-        $sql = [];
-        foreach ($tables as $k => $v) {
-            $tArr = array_keys($v);
-
-            $tCols = implode('`,`', $tArr);
-
-            $tStr = 'select `'.$tCols.'` from '.$k;
-
-            $sql[$k]['sql'] = $tStr;
-            $sql[$k]['data'] = $this->db_in->query($tStr);
+        // dump($this->db_out);
+        foreach ($sqlstrs as $sqlstr) {
+            // $this->db_out->query($sqlstr);
+            $this->db_in->query($sqlstr);
         }
-
-        return $sql;
     }
 
     public function save_txt($params, $filename = 'save_yml.txt')
@@ -174,13 +168,15 @@ class GetDbData
             $sql[$k]['data'] = $this->db_in->query($tStr);
         }
 
+
+
+
         $tInsert = [];
         $tttt = [];
         foreach ($sql as $k => $v) {
+
             if (!empty($v['data'])) {
                 $tttt[$k]['col'] = '`'.$v['colstr'].'`';
-
-                $tInsert[$k] = 'INSERT INTO `'.$k.'` (`'.$v['colstr'].'` ) VALUES ';
 
                 $tArr = [];
                 $tStr = '';
@@ -193,10 +189,8 @@ class GetDbData
                     }
                 }
                 $tttt[$k]['val'] = $tArr;
-                $tInsert[$k] .= implode(',', $tArr).';';
             }
         }
-
         return $tttt;
     }
     /**
@@ -216,6 +210,78 @@ class GetDbData
         return $sql;
     }
 
+
+    public function array_column($input = null, $columnKey = null, $indexKey = null)
+    {
+        // Using func_get_args() in order to check for proper number of
+        // parameters and trigger errors exactly as the built-in array_column()
+        // does in PHP 5.5.
+        $argc = func_num_args();
+        $params = func_get_args();
+        if ($argc < 2) {
+            trigger_error("array_column() expects at least 2 parameters, {$argc} given", E_USER_WARNING);
+            return null;
+        }
+        if (!is_array($params[0])) {
+            trigger_error(
+                'array_column() expects parameter 1 to be array, ' . gettype($params[0]) . ' given',
+                E_USER_WARNING
+            );
+            return null;
+        }
+        if (!is_int($params[1])
+            && !is_float($params[1])
+            && !is_string($params[1])
+            && $params[1] !== null
+            && !(is_object($params[1]) && method_exists($params[1], '__toString'))
+        ) {
+            trigger_error('array_column(): The column key should be either a string or an integer', E_USER_WARNING);
+            return false;
+        }
+        if (isset($params[2])
+            && !is_int($params[2])
+            && !is_float($params[2])
+            && !is_string($params[2])
+            && !(is_object($params[2]) && method_exists($params[2], '__toString'))
+        ) {
+            trigger_error('array_column(): The index key should be either a string or an integer', E_USER_WARNING);
+            return false;
+        }
+        $paramsInput = $params[0];
+        $paramsColumnKey = ($params[1] !== null) ? (string) $params[1] : null;
+        $paramsIndexKey = null;
+        if (isset($params[2])) {
+            if (is_float($params[2]) || is_int($params[2])) {
+                $paramsIndexKey = (int) $params[2];
+            } else {
+                $paramsIndexKey = (string) $params[2];
+            }
+        }
+        $resultArray = array();
+        foreach ($paramsInput as $row) {
+            $key = $value = null;
+            $keySet = $valueSet = false;
+            if ($paramsIndexKey !== null && array_key_exists($paramsIndexKey, $row)) {
+                $keySet = true;
+                $key = (string) $row[$paramsIndexKey];
+            }
+            if ($paramsColumnKey === null) {
+                $valueSet = true;
+                $value = $row;
+            } elseif (is_array($row) && array_key_exists($paramsColumnKey, $row)) {
+                $valueSet = true;
+                $value = $row[$paramsColumnKey];
+            }
+            if ($valueSet) {
+                if ($keySet) {
+                    $resultArray[$key] = $value;
+                } else {
+                    $resultArray[] = $value;
+                }
+            }
+        }
+        return $resultArray;
+    }
     /**
      * [getSqlCreate 依照getTables結果，建立create語法].
      *
@@ -228,6 +294,8 @@ class GetDbData
         foreach ($tables as $k => $v) {
             $tArr = [];
             foreach ($v as $kk => $vv) {
+            $ttt[$k][$vv['Key']][] = $vv['Field'];
+
                 $tStr = '`'.$vv['Field'].'` '.$vv['Type'];
                 if ($vv['Collation'] != null) {
                     $tStr .= ' COLLATE '.$vv['Collation'].' ';
@@ -236,7 +304,7 @@ class GetDbData
                     $tStr .= ' NOT NULL';
                 }
                 if ($vv['Default'] !== null) {
-                    if ($vv['Type'] == 'timestamp') {
+                    if (in_array($vv['Default'], ['timestamp','CURRENT_TIMESTAMP'])) {
                         $tStr .= ' DEFAULT '.$vv['Default'];
                     } else {
                         $tStr .= " DEFAULT '".$vv['Default']."' ";
@@ -249,15 +317,32 @@ class GetDbData
                 $tArr[] = $tStr;
             }
             $pri = [];
+            $mul = [];
+            $uni = [];
             foreach ($v as $kk => $vv) {
                 if ($vv['Key'] == 'PRI') {
                     $pri[] = '`'.$vv['Field'].'`';
+                }
+                if ($vv['Key'] == 'MUL') {
+                    $mul[] = '`'.$vv['Field'].'`';
+                }
+                if ($vv['Key'] == 'UNI') {
+                    $uni[] = '`'.$vv['Field'].'`';
                 }
             }
             if (count($pri)>0) {
                 $tArr[] = ' PRIMARY KEY (' .implode(',', $pri).  ')  ';
             }
-
+            if (count($mul)>0) {
+                foreach ($mul as $value) {
+                    $tArr[] = " KEY {$value} ({$value})  ";
+                }
+            }
+            if (count($uni)>0) {
+                foreach ($uni as $value) {
+                    $tArr[] = " UNIQUE {$value} ({$value})  ";
+                }
+            }
 
             $tDrop = 'DROP TABLE IF EXISTS `'.$k.'` ;';
             $tCols = implode(chr(13) . ',' , $tArr);
@@ -270,7 +355,6 @@ class GetDbData
             $sql[] = $tDrop;
             $sql[] = $tCreate;
         }
-
         return $sql;
     }
 
@@ -366,7 +450,6 @@ class GetDbData
             }
             $tArr[$table] = $tCols;
         }
-
         return $tArr;
     }
 }
